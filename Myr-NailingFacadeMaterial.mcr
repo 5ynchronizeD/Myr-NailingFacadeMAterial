@@ -1,7 +1,7 @@
 ﻿#Version 8
 #BeginDescription
 Last modified by: Oscar Ragnerby (oscar.ragnerby@obos.se)
-03.06.2019  -  version 1.13
+06.03.2020  -  version 1.14
 
 
 
@@ -69,19 +69,19 @@ Last modified by: Oscar Ragnerby (oscar.ragnerby@obos.se)
 /// AS - 1.11 - 13.06.2018 -	Simplify bomlink data.
 /// AS - 1.12 - 23.05.2019 -	Add no nailing area around openings
 /// OR - 1.13 - 03.06.2019 -	Add no nailing area under electrical cabinet
-/// OR - 1.14 - 03.06.2019 - 	Changed no nailing area to stop att 300mm height
+/// OR - 1.14 - 06.03.2020 -	Hardcode nailposition on plywood pw24 sheets
 /// </history>
 
 double dEps = U(.1,"mm");
 
-String arSMaterial[0];								String arSNailPosition[0];				double arDToEdge[0];
-arSMaterial.append("Panelbräda P81");			arSNailPosition.append("55;65");		arDToEdge.append(U(0));		// CL - horizontal - zn3
-arSMaterial.append("Funkispanel");				arSNailPosition.append("30;45");		arDToEdge.append(U(0));		// CF - vertical - zn3
-arSMaterial.append("Underbräda 21x145");		arSNailPosition.append("73");		arDToEdge.append(U(0));		// CC - vertical - zn3
-arSMaterial.append("Lockläkt");					arSNailPosition.append("23");		arDToEdge.append(U(0));		// CC - vertical - zn4
-arSMaterial.append("Underbräda 15x86");		arSNailPosition.append("43");		arDToEdge.append(U(0));		// CA - vertical - zn3
-arSMaterial.append("Underbräda 21x86");		arSNailPosition.append("43");		arDToEdge.append(U(0));		// CA - vertical - zn3
-arSMaterial.append("Överbräda");				arSNailPosition.append("30;50");		arDToEdge.append(U(0));		// CA - vertical - zn4
+String arSMaterial[0];								String arSNailPosition[0];				double arDToEdge[0];		double arFullWidth[0];
+arSMaterial.append("Panelbräda P81");			arSNailPosition.append("55;65");		arDToEdge.append(U(0));		arFullWidth.append(U(145));		// CL - horizontal - zn3
+arSMaterial.append("Funkispanel");				arSNailPosition.append("30;45");		arDToEdge.append(U(0));		arFullWidth.append(U(118));		// CF - vertical - zn3
+arSMaterial.append("Underbräda 21x145");		arSNailPosition.append("73");		arDToEdge.append(U(0));		arFullWidth.append(U(145));		// CC - vertical - zn3
+arSMaterial.append("Lockläkt");					arSNailPosition.append("23");		arDToEdge.append(U(0));		arFullWidth.append(U(45));		// CC - vertical - zn4
+arSMaterial.append("Underbräda 15x86");		arSNailPosition.append("43");		arDToEdge.append(U(0));		arFullWidth.append(U(86));		// CA - vertical - zn3
+arSMaterial.append("Underbräda 21x86");		arSNailPosition.append("43");		arDToEdge.append(U(0));		arFullWidth.append(U(86));		// CA - vertical - zn3
+arSMaterial.append("Överbräda");				arSNailPosition.append("30;50");		arDToEdge.append(U(0));		arFullWidth.append(U(110));		// CA - vertical - zn4
 
 // tool index
 int nToolingIndex = 1;
@@ -411,6 +411,8 @@ String arSMaterialsToAdd[0];
 for( int i=0;i<arShZn02.length();i++ ){
 	Sheet shZn02 = arShZn02[i];
 	Body bdShZn02 = shZn02.realBody();
+	Plane arPnZn02[0];
+
 	
 	PlaneProfile ppShZn02(csEl);
 	ppShZn02 = bdShZn02.shadowProfile(pnZ);
@@ -425,18 +427,42 @@ for( int i=0;i<arShZn02.length();i++ ){
 	}
 	Vector3d vz02 = vx02.crossProduct(vy02);
 	CoordSys cs02(pt02, vx02, vy02, vz02);
-	cs02.vis();
+//	cs02.vis();
 	
 	Point3d ptMinShZn02 = bdShZn02.ptCen() - vx02 * (.5 * bdShZn02.lengthInDirection(vx02) - dToEdgeZn02); ptMinShZn02.vis(2);
 	Point3d ptMaxShZn02 = bdShZn02.ptCen() + vx02 * (.5 * bdShZn02.lengthInDirection(vx02) - dToEdgeZn02); ptMaxShZn02.vis(3);
-	Plane pnZn02(pt02, vy02);
 	
-	for( int j=0;j<arShToNail.length();j++ ){
+	Element el = shZn02.element();
+	//Override on Plywood24
+	if(shZn02.material() == "Plywood PW24")
+	{ 
+		Point3d ptBottomNail = bdShZn02.ptCen() - vyEl * (.5 * bdShZn02.lengthInDirection(vyEl) - U(35));
+		//Point3d ptTopNail = bdShZn02.ptCen() - vy02 * (.5 * bdShZn02.lengthInDirection(vy02) - U(35));
+		
+		Plane pnZn02Bottom(ptBottomNail, vy02);
+		
+	
+		
+//		Plane pnZn02Top(ptTopNail, vy02);
+		
+//		arPnZn02.append(pnZn02Top);
+		arPnZn02.append(pnZn02Bottom);
+	}else
+	{
+		Plane pnZn02(pt02, vy02);
+		arPnZn02.append(pnZn02);
+	}
+	
+	for( int j=0;j<arShToNail.length();j++ )
+	{
+	
+		
 		Sheet shToNail = arShToNail[j];
 		Body bdShToNail = shToNail.realBody();
 		
 		//Coordsys of sheet
 		Point3d ptSh = shToNail.ptCen();
+		ptSh.vis(10);
 		Vector3d vxSh = shToNail.vecY();
 		Vector3d vySh = shToNail.vecX();
 		if( bdShToNail.lengthInDirection(vxSh) < bdShToNail.lengthInDirection(vySh) ){
@@ -445,7 +471,7 @@ for( int i=0;i<arShZn02.length();i++ ){
 		}
 		Vector3d vzSh = vxSh.crossProduct(vySh);
 		CoordSys csSh(ptSh, vxSh, vySh, vzSh);
-		csSh.vis();
+//		csSh.vis();
 		
 		Line lnShX(ptSh, vxSh);
 				
@@ -458,7 +484,10 @@ for( int i=0;i<arShZn02.length();i++ ){
 			}
 			continue;
 		}
-		
+
+		if(shToNail.solidWidth() != arFullWidth[nMaterialIndex] && shToNail.solidLength() != arFullWidth[nMaterialIndex])
+			continue;
+			
 		// zone index
 		int nZoneIndex = shToNail.myZoneIndex();		
 		double dToEdge = arDToEdge[nMaterialIndex];
@@ -468,6 +497,7 @@ for( int i=0;i<arShZn02.length();i++ ){
 			continue;
 		
 		// reference point for position nailing
+		// Top of the sheet
 		Point3d ptReference = ptSh + vySh * .5 * bdShToNail.lengthInDirection(vySh);
 		
 		// extremes
@@ -477,7 +507,9 @@ for( int i=0;i<arShZn02.length();i++ ){
 			continue;
 		Point3d ptMinSh = ptSh + vxSh * vxSh.dotProduct(arPtShX[0] - ptSh);		//bdShToNail.ptCen() - vxSh * (.5 * bdShToNail.lengthInDirection(vxSh) - dToEdge); ptMinShZn02.vis(2);
 		Point3d ptMaxSh = ptSh + vxSh * vxSh.dotProduct(arPtShX[arPtShX.length() - 1] - ptSh);	//bdShToNail.ptCen() + vxSh * (.5 * bdShToNail.lengthInDirection(vxSh) - dToEdge); ptMaxShZn02.vis(3);
-
+		
+		
+		
 		// find the nail positions
 		String sNailPosition = arSNailPosition[nMaterialIndex];
 		double arDNailPosition[0];
@@ -490,42 +522,54 @@ for( int i=0;i<arShZn02.length();i++ ){
 			// add this token
 			arDNailPosition.append(sToken.atof());
 			
+			
 			// get next
 			nIndex++;
 		}
 		
-		for( int k=0;k<arDNailPosition.length();k++ ){
+		for( int k=0;k<arDNailPosition.length();k++ )
+		{
 			double dNailPosition = arDNailPosition[k];
-			ptReference -= vySh * dNailPosition;
-			Line lnShToNail(ptReference, vxSh);
 			
-			Point3d ptToNail = lnShToNail.intersect(pnZn02, 0);
-			
-			if (noNailProfile.pointInProfile(ptToNail) == _kPointInProfile) continue;
-			
-			if( (vx02.dotProduct(ptToNail - ptMinShZn02) * vx02.dotProduct(ptToNail - ptMaxShZn02)) > 0 )continue;
-			
-			double dMinDistToEdgeZn = dMinDistToEdgeZn03;
-			if( nZoneIndex == 4 )
-				dMinDistToEdgeZn = dMinDistToEdgeZn04;
-bdShToNail.vis();
-ptMinSh.vis();
-ptMaxSh.vis();
-			if( abs(vxSh.dotProduct(ptToNail - ptMinSh)) < dMinDistToEdgeZn ){
-				ptToNail += vxSh * vxSh.dotProduct(ptMinSh + vxSh * dMinDistToEdgeZn - ptToNail);
-				if( ppShZn02.pointInProfile(ptToNail) != _kPointInProfile )
-					continue;
+			for (int pn=0;pn<arPnZn02.length();pn++){ 
+				Plane pn = arPnZn02[pn];
+				
+				Point3d ptReference2 = ptReference - vySh * dNailPosition;
+				ptReference2.vis(8);
+				Line lnShToNail(ptReference2, vxSh);
+				lnShToNail.vis(3);
+				
+				Point3d ptToNail = lnShToNail.intersect(pn, 0);
+				
+				if (noNailProfile.pointInProfile(ptToNail) == _kPointInProfile) continue;
+				
+				if( (vx02.dotProduct(ptToNail - ptMinShZn02) * vx02.dotProduct(ptToNail - ptMaxShZn02)) > 0 )continue;
+				
+				double dMinDistToEdgeZn = dMinDistToEdgeZn03;
+				if( nZoneIndex == 4 )
+					dMinDistToEdgeZn = dMinDistToEdgeZn04;
+					
+	//			bdShToNail.vis();
+	//			ptMinSh.vis();
+	//			ptMaxSh.vis();
+				
+				if( abs(vxSh.dotProduct(ptToNail - ptMinSh)) < dMinDistToEdgeZn ){
+					ptToNail += vxSh * vxSh.dotProduct(ptMinSh + vxSh * dMinDistToEdgeZn - ptToNail);
+					if( ppShZn02.pointInProfile(ptToNail) != _kPointInProfile )
+						continue;
+				}
+				if( abs(vxSh.dotProduct(ptToNail - ptMaxSh)) < dMinDistToEdgeZn ){
+					ptToNail += vxSh * vxSh.dotProduct(ptMaxSh - vxSh * dMinDistToEdgeZn - ptToNail);
+					if( ppShZn02.pointInProfile(ptToNail) != _kPointInProfile )
+						continue;
+				}			
+				if( (vxSh.dotProduct(ptToNail - ptMinSh) * vxSh.dotProduct(ptToNail - ptMaxSh)) > 0 )continue;
+				
+				
+				arPtToNail.append(ptToNail);
+				ptToNail.vis(2);
+				arNZoneIndex.append(nZoneIndex);
 			}
-			if( abs(vxSh.dotProduct(ptToNail - ptMaxSh)) < dMinDistToEdgeZn ){
-				ptToNail += vxSh * vxSh.dotProduct(ptMaxSh - vxSh * dMinDistToEdgeZn - ptToNail);
-				if( ppShZn02.pointInProfile(ptToNail) != _kPointInProfile )
-					continue;
-			}			
-			if( (vxSh.dotProduct(ptToNail - ptMinSh) * vxSh.dotProduct(ptToNail - ptMaxSh)) > 0 )continue;
-			
-			
-			arPtToNail.append(ptToNail);
-			arNZoneIndex.append(nZoneIndex);
 		}
 	}
 }
@@ -713,25 +757,26 @@ assignToElementGroup(el,TRUE,0,'E');
 
 
 
+
 #End
 #BeginMapX
 <?xml version="1.0" encoding="utf-16"?>
 <Hsb_Map>
   <lst nm="TslIDESettings">
-    <lst nm="TSLIDESETTINGS">
-      <lst nm="HOSTSETTINGS">
-        <dbl nm="PREVIEWTEXTHEIGHT" ut="L" vl="1" />
-      </lst>
-      <lst nm="{E1BE2767-6E4B-4299-BBF2-FB3E14445A54}">
-        <lst nm="BREAKPOINTS" />
-      </lst>
+    <lst nm="HostSettings">
+      <dbl nm="PreviewTextHeight" ut="L" vl="1" />
+    </lst>
+    <lst nm="{E1BE2767-6E4B-4299-BBF2-FB3E14445A54}">
+      <lst nm="BreakPoints" />
     </lst>
   </lst>
   <lst nm="TslInfo">
     <lst nm="TSLINFO">
       <lst nm="TSLINFO">
         <lst nm="TSLINFO">
-          <lst nm="TSLINFO" />
+          <lst nm="TSLINFO">
+            <lst nm="TSLINFO" />
+          </lst>
         </lst>
       </lst>
     </lst>
