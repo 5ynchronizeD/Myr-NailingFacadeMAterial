@@ -1,7 +1,7 @@
 ﻿#Version 8
 #BeginDescription
-Last modified by: Anno Sportel (anno.sportel@hsbcad.com)
-02.09.2015  -  version 1.08
+Last modified by: Oscar Ragnerby (oscar.ragnerby@obos.se)
+03.06.2019  -  version 1.13
 
 
 
@@ -37,7 +37,7 @@ Last modified by: Anno Sportel (anno.sportel@hsbcad.com)
 #ImplInsert 1
 #FileState 1
 #MajorVersion 1
-#MinorVersion 8
+#MinorVersion 14
 #KeyWords 
 #BeginContents
 /// <summary Lang=en>
@@ -52,7 +52,7 @@ Last modified by: Anno Sportel (anno.sportel@hsbcad.com)
 /// .
 /// </remark>
 
-/// <version  value="1.08" date="02.09.2015"></version>
+/// <version  value="1.14" date="03.06.2019"></version>
 
 /// <history>
 /// AS - 1.00 - 19.10.2009 -	Pilot version
@@ -64,6 +64,12 @@ Last modified by: Anno Sportel (anno.sportel@hsbcad.com)
 /// AS - 1.06 - 01.09.2015 -	Remove extra space in "Panelbräda P81", add option to recalculate nail positions
 /// AS - 1.07 - 01.09.2015 -	Add option to add or remove multiple nails at once. Add material filter.
 /// AS - 1.08 - 02.09.2015 -	Change nail positions for CL walls
+/// AS - 1.09 - 19.09.2016 -	Correct translation string.
+/// AS - 1.10 - 12.06.2018 -	Add number of nails to mapX for BOMlink
+/// AS - 1.11 - 13.06.2018 -	Simplify bomlink data.
+/// AS - 1.12 - 23.05.2019 -	Add no nailing area around openings
+/// OR - 1.13 - 03.06.2019 -	Add no nailing area under electrical cabinet
+/// OR - 1.14 - 03.06.2019 - 	Changed no nailing area to stop att 300mm height
 /// </history>
 
 double dEps = U(.1,"mm");
@@ -86,8 +92,7 @@ String categories[] = {
 	T("|Nailing|"),
 	T("|Visualization|")
 };
-
-
+	
 // distance to edge of zone 2
 PropDouble dToEdgeZn02(0, U(0), T("Distance to edge of spikregel"));
 dToEdgeZn02.setDescription(T("|Sets the distance to the edge of zone| 2"));
@@ -195,7 +200,7 @@ if( _bOnInsert ){
 		}
 	}
 	
-	reportMessage(nNrOfTslsInserted + T(" |tsl(s) inserted|"));
+	reportMessage(nNrOfTslsInserted + TN(" |tsl(s) inserted|"));
 	
 	eraseInstance();
 	return;
@@ -275,6 +280,94 @@ Vector3d vyEl = csEl.vecY();
 Vector3d vzEl = csEl.vecZ();
 
 Plane pnZ(ptEl, vzEl);
+Line lnX(ptEl, vxEl);
+Line lnY(ptEl, vyEl);
+
+
+double openingNoNailOffsetX = U(180);
+String elementCode = el.code();
+if (elementCode == "CC")
+{
+	openingNoNailOffsetX = U(155);
+}
+else if (elementCode == "CF")
+{
+	openingNoNailOffsetX = U(72);
+}
+double openingNoNailOffsetY = 100;
+//Case "CA"
+//    xOffsetNeg = 180
+//    xOffsetPos = 180
+//Case "CC"
+//    xOffsetNeg = 155
+//    xOffsetPos = 155
+//Case "CF"
+//    xOffsetNeg = 72
+//    xOffsetPos = 72
+//
+//Case Else
+//    xOffsetNeg = 180
+//    xOffsetPos = 180
+//End Select
+
+PlaneProfile noNailProfile(csEl);
+Opening openings[] = el.opening();
+
+
+for (int i=0;i<openings.length();i++)
+{
+	OpeningSF op = (OpeningSF)openings[i];
+	String constructionDetail = op.constrDetail();
+	PLine plCir;
+	Point3d openingVertices[] = openings[i].plShape().vertexPoints(true);
+
+				
+	Point3d openingVerticesX[] = lnX.orderPoints(openingVertices); //Sorting array from X acending
+	Point3d openingVerticesY[] = lnY.orderPoints(openingVertices); //Sorting array from y acending
+	if (openingVerticesX.length() == 0 || openingVerticesY.length() == 0) continue; //If opening only have one vertecies, for loop is stepping to next opening
+	
+	//Remove nails under cabinet
+	if (constructionDetail == "MH_EL")
+	{
+		Point3d bottomLeftCab = openingVerticesX[0];
+		Point3d bottomRightCab = openingVerticesY[0];
+		
+		PLine noNailOutlineUnderCabinet(vzEl);
+		
+		noNailOutlineUnderCabinet.addVertex(bottomLeftCab - vyEl * bottomLeftCab.Z());
+		noNailOutlineUnderCabinet.addVertex(bottomLeftCab - vyEl * (bottomLeftCab.Z() - 300));
+		noNailOutlineUnderCabinet.addVertex(bottomRightCab - vyEl * (bottomRightCab.Z() - 300));
+		noNailOutlineUnderCabinet.addVertex(bottomRightCab - vyEl * bottomRightCab.Z());
+		noNailOutlineUnderCabinet.close();
+		noNailProfile.joinRing(noNailOutlineUnderCabinet, _kAdd);
+	}
+
+	Point3d topLeft = openingVerticesX[0];
+	topLeft += vyEl * vyEl.dotProduct(openingVerticesY[openingVerticesY.length() - 1] - topLeft);
+	Point3d topRight = openingVerticesX[openingVerticesX.length() - 1];
+	topRight += vyEl * vyEl.dotProduct(openingVerticesY[openingVerticesY.length() - 1] - topRight);
+	
+	
+	PLine noNailOutline(vzEl);
+	noNailOutline.addVertex(topLeft - vxEl * openingNoNailOffsetX + vyEl * openingNoNailOffsetY);
+	noNailOutline.addVertex(topLeft - vxEl * openingNoNailOffsetX - vyEl * openingNoNailOffsetY);
+	noNailOutline.addVertex(topRight + vxEl * openingNoNailOffsetX - vyEl * openingNoNailOffsetY);
+	noNailOutline.addVertex(topRight + vxEl * openingNoNailOffsetX + vyEl * openingNoNailOffsetY);
+	noNailOutline.close();
+	
+	noNailProfile.joinRing(noNailOutline, _kAdd);
+}
+
+if(_bOnDebug)
+{
+	Display d(1);
+	d.draw(noNailProfile);
+}
+
+
+
+//return;
+// sheets
 
 // sheets
 Sheet arSh[] = el.sheet();
@@ -361,7 +454,7 @@ for( int i=0;i<arShZn02.length();i++ ){
 		if( nMaterialIndex < 0 ){
 			if( arSMaterialsToAdd.find(sMaterial) == -1 ){
 				arSMaterialsToAdd.append(sMaterial);
-				reportMessage(TN("|Material not found! - |") + sMaterial);
+				reportMessage(TN("|Material not found|! - ") + sMaterial);
 			}
 			continue;
 		}
@@ -407,6 +500,8 @@ for( int i=0;i<arShZn02.length();i++ ){
 			Line lnShToNail(ptReference, vxSh);
 			
 			Point3d ptToNail = lnShToNail.intersect(pnZn02, 0);
+			
+			if (noNailProfile.pointInProfile(ptToNail) == _kPointInProfile) continue;
 			
 			if( (vx02.dotProduct(ptToNail - ptMinShZn02) * vx02.dotProduct(ptToNail - ptMaxShZn02)) > 0 )continue;
 			
@@ -580,15 +675,24 @@ for( int i=0;i<_PtG.length();i++ ){
 	}
 }
 
+Map mapNailCluster;
 if( arPtToNailZn03.length() > 0 ){
 	ElemNailCluster elNailClusterForZn03( 3, arPtToNailZn03, nToolingIndex );
 	el.addTool(elNailClusterForZn03);
+	
+	mapNailCluster.setInt("Zone3", arPtToNailZn03.length());
 }
 
 if( arPtToNailZn04.length() > 0 ){
 	ElemNailCluster elNailClusterForZn04( 4, arPtToNailZn04, nToolingIndex );
 	el.addTool(elNailClusterForZn04);
+	
+	mapNailCluster.setInt("Zone4", arPtToNailZn04.length());
 }
+
+Map mapBomLink;
+mapBomLink.setMap("NailClusters", mapNailCluster);
+_ThisInst.setSubMapX("Hsb_BomLink", mapBomLink);
 
 assignToElementGroup(el,TRUE,0,'E');
 
@@ -602,4 +706,37 @@ assignToElementGroup(el,TRUE,0,'E');
 
 
 
+
+
+
+
+
+
+
+#End
+#BeginMapX
+<?xml version="1.0" encoding="utf-16"?>
+<Hsb_Map>
+  <lst nm="TslIDESettings">
+    <lst nm="TSLIDESETTINGS">
+      <lst nm="HOSTSETTINGS">
+        <dbl nm="PREVIEWTEXTHEIGHT" ut="L" vl="1" />
+      </lst>
+      <lst nm="{E1BE2767-6E4B-4299-BBF2-FB3E14445A54}">
+        <lst nm="BREAKPOINTS" />
+      </lst>
+    </lst>
+  </lst>
+  <lst nm="TslInfo">
+    <lst nm="TSLINFO">
+      <lst nm="TSLINFO">
+        <lst nm="TSLINFO">
+          <lst nm="TSLINFO" />
+        </lst>
+      </lst>
+    </lst>
+  </lst>
+  <unit ut="L" uv="millimeter" />
+  <unit ut="A" uv="radian" />
+</Hsb_Map>
 #End
