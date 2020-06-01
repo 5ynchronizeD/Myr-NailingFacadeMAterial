@@ -432,31 +432,10 @@ for( int i=0;i<arShZn02.length();i++ ){
 	Point3d ptMinShZn02 = bdShZn02.ptCen() - vx02 * (.5 * bdShZn02.lengthInDirection(vx02) - dToEdgeZn02); ptMinShZn02.vis(2);
 	Point3d ptMaxShZn02 = bdShZn02.ptCen() + vx02 * (.5 * bdShZn02.lengthInDirection(vx02) - dToEdgeZn02); ptMaxShZn02.vis(3);
 	
-	Element el = shZn02.element();
-	//Override on Plywood24
-	if(shZn02.material() == "Plywood PW24")
-	{ 
-		Point3d ptBottomNail = bdShZn02.ptCen() - vyEl * (.5 * bdShZn02.lengthInDirection(vyEl) - U(35));
-		//Point3d ptTopNail = bdShZn02.ptCen() - vy02 * (.5 * bdShZn02.lengthInDirection(vy02) - U(35));
-		
-		Plane pnZn02Bottom(ptBottomNail, vy02);
-		
 	
-		
-//		Plane pnZn02Top(ptTopNail, vy02);
-		
-//		arPnZn02.append(pnZn02Top);
-		arPnZn02.append(pnZn02Bottom);
-	}else
-	{
-		Plane pnZn02(pt02, vy02);
-		arPnZn02.append(pnZn02);
-	}
+	Plane pnZn02(pt02, vy02);
 	
-	for( int j=0;j<arShToNail.length();j++ )
-	{
-	
-		
+	for( int j=0;j<arShToNail.length();j++ ){	
 		Sheet shToNail = arShToNail[j];
 		Body bdShToNail = shToNail.realBody();
 		
@@ -527,49 +506,37 @@ for( int i=0;i<arShZn02.length();i++ ){
 			nIndex++;
 		}
 		
-		for( int k=0;k<arDNailPosition.length();k++ )
-		{
+		for( int k=0;k<arDNailPosition.length();k++ ){
 			double dNailPosition = arDNailPosition[k];
+			ptReference -= vySh * dNailPosition;
+			Line lnShToNail(ptReference, vxSh);
 			
-			for (int pn=0;pn<arPnZn02.length();pn++){ 
-				Plane pn = arPnZn02[pn];
-				
-				Point3d ptReference2 = ptReference - vySh * dNailPosition;
-				ptReference2.vis(8);
-				Line lnShToNail(ptReference2, vxSh);
-				lnShToNail.vis(3);
-				
-				Point3d ptToNail = lnShToNail.intersect(pn, 0);
-				
-				if (noNailProfile.pointInProfile(ptToNail) == _kPointInProfile) continue;
-				
-				if( (vx02.dotProduct(ptToNail - ptMinShZn02) * vx02.dotProduct(ptToNail - ptMaxShZn02)) > 0 )continue;
-				
-				double dMinDistToEdgeZn = dMinDistToEdgeZn03;
-				if( nZoneIndex == 4 )
-					dMinDistToEdgeZn = dMinDistToEdgeZn04;
-					
-	//			bdShToNail.vis();
-	//			ptMinSh.vis();
-	//			ptMaxSh.vis();
-				
-				if( abs(vxSh.dotProduct(ptToNail - ptMinSh)) < dMinDistToEdgeZn ){
-					ptToNail += vxSh * vxSh.dotProduct(ptMinSh + vxSh * dMinDistToEdgeZn - ptToNail);
-					if( ppShZn02.pointInProfile(ptToNail) != _kPointInProfile )
-						continue;
-				}
-				if( abs(vxSh.dotProduct(ptToNail - ptMaxSh)) < dMinDistToEdgeZn ){
-					ptToNail += vxSh * vxSh.dotProduct(ptMaxSh - vxSh * dMinDistToEdgeZn - ptToNail);
-					if( ppShZn02.pointInProfile(ptToNail) != _kPointInProfile )
-						continue;
-				}			
-				if( (vxSh.dotProduct(ptToNail - ptMinSh) * vxSh.dotProduct(ptToNail - ptMaxSh)) > 0 )continue;
-				
-				
-				arPtToNail.append(ptToNail);
-				ptToNail.vis(2);
-				arNZoneIndex.append(nZoneIndex);
+			Point3d ptToNail = lnShToNail.intersect(pnZn02, 0);
+			
+			//Skip if in no nail area
+			if (noNailProfile.pointInProfile(ptToNail) == _kPointInProfile) continue;
+			
+			if( (vx02.dotProduct(ptToNail - ptMinShZn02) * vx02.dotProduct(ptToNail - ptMaxShZn02)) > 0 )continue;
+			
+			double dMinDistToEdgeZn = dMinDistToEdgeZn03;
+			if( nZoneIndex == 4 )
+				dMinDistToEdgeZn = dMinDistToEdgeZn04;
+
+			if( abs(vxSh.dotProduct(ptToNail - ptMinSh)) < dMinDistToEdgeZn ){
+				ptToNail += vxSh * vxSh.dotProduct(ptMinSh + vxSh * dMinDistToEdgeZn - ptToNail);
+				if( ppShZn02.pointInProfile(ptToNail) != _kPointInProfile )
+					continue;
 			}
+			if( abs(vxSh.dotProduct(ptToNail - ptMaxSh)) < dMinDistToEdgeZn ){
+				ptToNail += vxSh * vxSh.dotProduct(ptMaxSh - vxSh * dMinDistToEdgeZn - ptToNail);
+				if( ppShZn02.pointInProfile(ptToNail) != _kPointInProfile )
+					continue;
+			}			
+			if( (vxSh.dotProduct(ptToNail - ptMinSh) * vxSh.dotProduct(ptToNail - ptMaxSh)) > 0 )continue;
+			
+			
+			arPtToNail.append(ptToNail);
+			arNZoneIndex.append(nZoneIndex);
 		}
 	}
 }
